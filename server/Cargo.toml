@@ -4,7 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0"
 axum = { version = "0.7.6", features = ["ws"] }
 axum-extra = { version = "0.9.4", features = ["typed-header"] }
 futures = "0.3.30"
 tokio = { version = "1.40.0", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
