@@ -1,8 +1,8 @@
-use std::{net::SocketAddr, ops::ControlFlow};
+use std::{borrow::Cow, net::SocketAddr, ops::ControlFlow};
 
 use axum::{
     extract::{
-        ws::{Message, WebSocket},
+        ws::{CloseCode, CloseFrame, Message, WebSocket},
         ConnectInfo, WebSocketUpgrade,
     },
     response::IntoResponse,
@@ -36,15 +36,27 @@ async fn ws_handler(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
 ) -> impl IntoResponse {
     info!("{addr} connected");
-    ws.on_upgrade(move |socket| handle_socket(socket, addr))
+    ws.on_upgrade(move |socket| handle_socket(socket))
 }
 
-async fn handle_socket(socket: WebSocket, addr: SocketAddr) {
+async fn handle_socket(socket: WebSocket) {
     let (mut sender, mut receiver) = socket.split();
 
     let mut send_task = tokio::spawn(async move {
         sender.send(Message::Text("uci".into())).await;
-        loop {}
+        let mut count = 0;
+        loop {
+            count += 1;
+            if count > 500_000 {
+                break;
+            }
+        }
+        sender
+            .send(Message::Close(Some(CloseFrame {
+                code: 1000,
+                reason: Cow::Borrowed("Nothing to do"),
+            })))
+            .await;
     });
 
     let mut recv_task = tokio::spawn(async move {

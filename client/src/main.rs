@@ -1,6 +1,10 @@
 use std::{
     collections::VecDeque,
+    env::current_dir,
+    io::{BufRead, BufReader, Write},
     ops::ControlFlow,
+    path::Path,
+    process::{Command, Stdio},
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -11,11 +15,32 @@ use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{error, info};
 
 const URI: &str = "ws://127.0.0.1:3000/ws";
+const STOCKFISH_PATH: &str = "./stockfish";
 
 type MessageQueue = Arc<Mutex<VecDeque<String>>>;
 
 #[tokio::main]
 async fn main() {
+    let engine = Command::new(STOCKFISH_PATH)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("Failed to start {STOCKFISH_PATH}");
+
+    let mut stdin = engine.stdin.expect("Failed to open stdin");
+    let stdout = engine.stdout.expect("Failed to open stdin");
+    let reader = BufReader::new(stdout);
+
+    stdin.write_all("uci\n".as_bytes());
+    for line in reader.lines() {
+        match line {
+            Ok(line) => println!("{line}"),
+            Err(e) => eprintln!("{e}"),
+        }
+    }
+
+    return;
+
     let queue: MessageQueue = Arc::new(Mutex::new(VecDeque::new()));
 
     let mut interval = time::interval(Duration::from_secs(1));
@@ -61,6 +86,7 @@ async fn main() {
             if let Message::Text(t) = msg {
                 let res = match t.as_str() {
                     "uci" => "uciok",
+                    "isready" => "isreadyok",
                     _ => "unknown command",
                 };
 
